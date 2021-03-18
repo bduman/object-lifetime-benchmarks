@@ -6,7 +6,7 @@ using Microsoft.Extensions.ObjectPool;
 
 namespace DateTimeConvertBenchmarks
 {
-    [SimpleJob]
+    [SimpleJob(invocationCount: 50)]
     [MemoryDiagnoser]
     [ThreadingDiagnoser]
     public class Benchmarks
@@ -27,73 +27,63 @@ namespace DateTimeConvertBenchmarks
         }
 
         [Benchmark]
-        public int[] WithNewInstance()
+        public void WithNewInstance()
         {
-            int[] buffer = new int[this._listOfString.Count];
-            var i = 0;
-
             Parallel.ForEach(this._listOfString, str =>
             {
                 var parser = new DateTimeParser();
                 var dateTime = parser.Parse(str);
-                buffer[i++] = dateTime.Day;
             });
-
-            return buffer;
         }
 
         [Benchmark]
-        public int[] WithSharedInstance()
+        public void WithSharedInstance()
         {
-            int[] buffer = new int[this._listOfString.Count];
-            var i = 0;
-
             var parser = new DateTimeParser();
 
             Parallel.ForEach(this._listOfString, str =>
             {
                 var dateTime = parser.Parse(str);
-                buffer[i++] = dateTime.Day;
             });
-
-            return buffer;
         }
 
-        [Benchmark]
-        public int[] WithThreadLocalInstance()
+        [Benchmark(Baseline = true)]
+        public void WithThreadLocalInstance()
         {
-            int[] buffer = new int[this._listOfString.Count];
-            var i = 0;
-
             Parallel.ForEach(this._listOfString, str =>
             {
                 var dateTime = ThreadedDateTimeParser.Parser.Value.Parse(str);
-                buffer[i++] = dateTime.Day;
             });
-
-            return buffer;
         }
 
         [Benchmark]
-        public int[] WithPooledInstance()
+        public void WithPooledInstance()
         {
             var provider = new DefaultObjectPoolProvider();
             var pool = provider.Create(new DefaultPooledObjectPolicy<DateTimeParser>());
 
-            int[] buffer = new int[this._listOfString.Count];
-            var i = 0;
-
             Parallel.ForEach(this._listOfString, str =>
             {
                 var parser = pool.Get();
-
                 var dateTime = parser.Parse(str);
-                buffer[i++] = dateTime.Day;
-
                 pool.Return(parser);
             });
+        }
 
-            return buffer;
+        [Benchmark]
+        public void WithThreadLocalOfPForEachInstance()
+        {
+            Parallel.ForEach(this._listOfString,
+            () => new DateTimeParser(),
+            (str, loopstate, index, parser) =>
+            {
+                var dateTime = parser.Parse(str);
+                return parser;
+            },
+            (parser) =>
+            {
+                // do nothing
+            });
         }
     }
 }
