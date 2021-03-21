@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Configs;
 using Microsoft.Extensions.ObjectPool;
 
 namespace DateTimeConvertBenchmarks
@@ -9,6 +10,8 @@ namespace DateTimeConvertBenchmarks
     [SimpleJob(invocationCount: 50)]
     [MemoryDiagnoser]
     [ThreadingDiagnoser]
+    [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
+    [CategoriesColumn]
     public class Benchmarks
     {
         private List<string> _listOfString;
@@ -27,6 +30,7 @@ namespace DateTimeConvertBenchmarks
         }
 
         [Benchmark]
+        [BenchmarkCategory("Parallel.ForEach")]
         public void WithNewInstance()
         {
             Parallel.ForEach(this._listOfString, str =>
@@ -37,6 +41,7 @@ namespace DateTimeConvertBenchmarks
         }
 
         [Benchmark]
+        [BenchmarkCategory("Parallel.ForEach")]
         public void WithSharedInstance()
         {
             var parser = new DateTimeParser();
@@ -48,6 +53,7 @@ namespace DateTimeConvertBenchmarks
         }
 
         [Benchmark(Baseline = true)]
+        [BenchmarkCategory("Parallel.ForEach")]
         public void WithThreadLocalInstance()
         {
             Parallel.ForEach(this._listOfString, str =>
@@ -57,6 +63,7 @@ namespace DateTimeConvertBenchmarks
         }
 
         [Benchmark]
+        [BenchmarkCategory("Parallel.ForEach")]
         public void WithPooledInstance()
         {
             var provider = new DefaultObjectPoolProvider();
@@ -71,6 +78,7 @@ namespace DateTimeConvertBenchmarks
         }
 
         [Benchmark]
+        [BenchmarkCategory("Parallel.ForEach")]
         public void WithThreadLocalOfPForEachInstance()
         {
             Parallel.ForEach(this._listOfString,
@@ -84,6 +92,18 @@ namespace DateTimeConvertBenchmarks
             {
                 // do nothing
             });
+        }
+
+        [Benchmark(Baseline = true)]
+        [BenchmarkCategory("Task.Run")]
+        public async Task TaskWithThreadLocalInstance()
+        {
+            var taskList = this._listOfString.Select(str => Task.Run(() =>
+            {
+                var dateTime = ThreadedDateTimeParser.Parser.Value.Parse(str);
+            }));
+
+            await Task.WhenAll(taskList).ConfigureAwait(false);
         }
     }
 }
